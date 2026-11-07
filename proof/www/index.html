@@ -1,0 +1,9 @@
+<!doctype html>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>exe-host proof</title>
+<h1>exe-host: up</h1>
+<p>This page is served by a VM on exe.dev, reached over the tailnet. Phobos is not involved.</p>
+<p>Server time (live): <a href="/cgi-bin/now">/cgi-bin/now</a></p>
+<pre id="t">…</pre>
+<script>fetch("/cgi-bin/now").then(r => r.text()).then(t => document.getElementById("t").textContent = t)</script>

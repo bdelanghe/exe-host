@@ -1,0 +1,7 @@
+[Unit]
+Description=exe-host backup of /srv/state to R2 (restic)
+ConditionPathExists=/etc/exe-host/backup.env
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/sbin/exe-host-backup

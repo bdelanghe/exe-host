@@ -1,0 +1,10 @@
+# Services on the host. One entry per service: image, loopback port, state under /srv/state/<name>.
+# Services bind 127.0.0.1 only; reachability is added in services.d/<name>.sh with `tailscale serve`.
+services:
+  proof:
+    build: ./proof
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:8080:8080"
+    volumes:
+      - /srv/state/proof:/state

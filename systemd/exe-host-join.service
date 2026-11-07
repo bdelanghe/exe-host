@@ -1,0 +1,8 @@
+[Unit]
+Description=exe-host tailnet join (exe.dev workload identity; no-op while online)
+After=network-online.target docker.service
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/sbin/exe-host-join
