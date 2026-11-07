@@ -8,7 +8,7 @@ command -v docker >/dev/null 2>&1 || { apt-get update -y && apt-get install -y d
 command -v restic >/dev/null 2>&1 || { apt-get update -y && apt-get install -y restic; }
 command -v jq >/dev/null 2>&1 || { apt-get update -y && apt-get install -y jq curl; }
 command -v tailscale >/dev/null 2>&1 || curl -fsSL https://tailscale.com/install.sh | sh
-systemctl enable --now docker
+systemctl enable --now docker tailscaled
 
 mkdir -p /srv/state/proof /etc/exe-host
 chmod 700 /etc/exe-host

@@ -14,7 +14,7 @@ fi
 
 META=$(curl -fsS "$WIF/metadata")
 CLIENT_ID=$(echo "$META" | jq -er .client_id)
-TAGS=$(echo "$META" | jq -r '.tags // "tag:host"')
+TAGS=$(echo "$META" | jq -r '.tags // "tag:app-host"')
 ID_TOKEN=$(curl -fsS "$WIF/token" | jq -er .token)
 
 tailscale up \
