@@ -22,10 +22,10 @@ Plan: `~/.lobby/ops/decisions/PLAN-2026-11-06-off-phobos-by-nov-12.md`. This rep
 - **Tailnet:** `tail556f5b` (personal). Policy is code: `bdelanghe/tailnet-policy`, `policy.hujson`. Edit it by PR; a console edit is overwritten by the next apply and flagged by the drift job.
 - **Tag:** `tag:host`, in `tagOwners` as `["autogroup:admin"]`. Only Bobby can apply it by hand.
 - **Trust credential** (Tailscale admin, Settings, Trust credentials): type OpenID Connect, issuer = the exe.dev **Issuer**, subject = the exe.dev **Subject** exactly (never `*`), scope **Auth Keys: write** only (never OAuth Keys, Federated Keys or All), tag `tag:host`. One credential per exe.dev integration.
-- **exe.dev integration** `tailscale-wif` (Identity Federation, consumer `tailscale`), attached to `vm:exe-host`. Metadata `client_id=<Client ID>`, `tags=tag:host`. Reachable only from an attached VM at `https://tailscale-wif.int.exe.xyz` (`/metadata`, `/token`, tokens last 5 minutes).
+- **exe.dev integration** `tailscale-wif-host` (Identity Federation, consumer `tailscale`), attached to `vm:exe-host`. Metadata `client_id=<Client ID>`, `tags=tag:host`. Reachable only from an attached VM at `https://tailscale-wif-host.int.exe.xyz` (`/metadata`, `/token`, tokens last 5 minutes).
 - **Node:** joins with `tailscale up --client-id=<id>?ephemeral=true&preauthorized=true --id-token=… --advertise-tags=tag:host --hostname=exe-host`. Ephemeral: Tailscale deletes it when it goes offline, and `exe-host-join.timer` re-joins it with a fresh token when it is back.
-- **Reach:** the existing `* -> *` grant covers `tag:host`. That means the host can dial every device and the reverse. Tightening it (members -> all, `tag:host` -> only what it must dial) is a follow-up PR, not part of step 1, because it must not strand `tag:fleet-lab`.
-- **Policy test:** `bdelanghe@github` accepts `tag:host:80`.
+- **Reach:** tailnet-policy main (rendered from modules/base.nix) grants my devices (`autogroup:member`) everything, so they reach `tag:host`; `tag:host` itself gets no grant, so it opens nothing to my devices, the hub or fleet-lab (tested, tailnet-policy wip/exe-host-tag).
+- **Policy tests:** `bdelanghe@github` accepts `tag:host:80`; `tag:host` is denied to my devices on 443, 22 and 80, to the hub on 443 and to fleet-lab on 22.
 - **Not exposed:** exe.dev's own HTTPS proxy (`exe-host.exe.xyz`) is private by default and stays that way. Never `share set-public` a service that is meant for the tailnet. Services bind `127.0.0.1` only.
 
 ## Adding the next service

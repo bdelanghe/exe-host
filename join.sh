@@ -5,7 +5,7 @@
 # Idempotent: a no-op while the node is online. Runs from exe-host-join.timer so an ephemeral node that was
 # garbage-collected while offline comes back by itself.
 set -eu
-WIF=${EXE_WIF_URL:-https://tailscale-wif.int.exe.xyz}
+WIF=${EXE_WIF_URL:-https://tailscale-wif-host.int.exe.xyz}
 HOSTNAME_TS=${EXE_HOST_TSNAME:-exe-host}
 
 if tailscale status --json 2>/dev/null | jq -e '.BackendState == "Running"' >/dev/null 2>&1; then
