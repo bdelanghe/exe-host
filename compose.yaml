@@ -29,6 +29,27 @@ services:
     volumes:
       - /opt/exe-host/src/trip-projector/current:/app:ro
 
+  # Option A: facto's Postgres on this host. Exclusive with facto-db below (both want 127.0.0.1:5432).
+  # DB facto, role facto, loopback 5432, data /srv/state/facto-pg (uid 10003). Password: /etc/exe-host/facto-pg/password.
+  # Image tag is NOT pinned by digest and the version must be >= phobos' (check `select version()` there).
+  facto-pg:
+    image: postgres:17
+    profiles: ["facto-pg"]
+    restart: unless-stopped
+    user: "10003:10003"
+    cap_drop: [ALL]
+    security_opt: ["no-new-privileges:true"]
+    environment:
+      POSTGRES_DB: facto
+      POSTGRES_USER: facto
+      POSTGRES_PASSWORD_FILE: /run/facto-pg/password
+      PGDATA: /var/lib/postgresql/data/pgdata
+    ports:
+      - "127.0.0.1:5432:5432"
+    volumes:
+      - /srv/state/facto-pg:/var/lib/postgresql/data
+      - /etc/exe-host/facto-pg:/run/facto-pg:ro
+
   # Postgres proxy to Neon, published on the tailnet as svc:facto-db (services.d/facto-db.sh). Runs as its own
   # system user (uid 10001, `facto-db`), read-only, no capabilities. Starts only once /etc/exe-host/facto-db/
   # exists (bootstrap.sh sets COMPOSE_PROFILES=facto-db then); facto-db-config.sh writes it from 1Password.
