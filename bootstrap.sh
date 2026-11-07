@@ -12,10 +12,15 @@ systemctl enable --now docker tailscaled
 
 mkdir -p /srv/state/proof /etc/exe-host
 chmod 700 /etc/exe-host
+
+# One Unix user per service, so no process has ambient control. facto-db owns /etc/exe-host/facto-db (uid 10001).
+id facto-db >/dev/null 2>&1 || useradd --system --uid 10001 --no-create-home --shell /usr/sbin/nologin facto-db
+[ ! -f /etc/exe-host/facto-db/upstream.ini ] || export COMPOSE_PROFILES=facto-db
 docker compose up -d --build
 
 install -m 0755 backup.sh /usr/local/sbin/exe-host-backup
 install -m 0755 join.sh /usr/local/sbin/exe-host-join
+install -m 0755 facto-db-config.sh /usr/local/sbin/exe-host-facto-db-config
 install -m 0644 systemd/*.service systemd/*.timer /etc/systemd/system/
 systemctl daemon-reload
 systemctl enable --now exe-host-backup.timer exe-host-join.timer

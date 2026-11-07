@@ -17,6 +17,14 @@ Plan: `~/.lobby/ops/decisions/PLAN-2026-11-06-off-phobos-by-nov-12.md`. This rep
 | `backup.sh` | restic of `/srv/state` to R2, hourly (`exe-host-backup.timer`); `backup.sh restore DIR` for the drill. |
 | `proof/` | the proof service: busybox httpd + a CGI that prints host, UTC time and a hit counter kept in `/srv/state/proof`. |
 
+## facto-db: Neon on the tailnet (option B, Bobby's personal Neon project `facto`)
+
+- `facto-db/` is pgbouncer (Debian package, built on the VM) as its own system user `facto-db` (uid 10001, read-only container, no capabilities). It listens on `127.0.0.1:5432` and forwards to Neon with `server_tls_sslmode=verify-full` (Neon needs TLS and SNI; a raw TCP forward would send the tailnet name as SNI and fail, which is why this is a proxy and not `tailscale serve` straight to Neon).
+- Published as Tailscale Service `svc:facto-db` on TCP 5432 by `services.d/facto-db.sh`: clients use `postgres://<user>:<password>@facto-db.tail556f5b.ts.net:5432/<db>`. **Not run; the `tailscale serve --service=… --tcp=…` syntax is from memory and must be checked on the VM** (`tailscale serve --help`). Also unverified: that the service must be defined in the Tailscale admin console first, and that `tag:app-host`'s existing `svc:*` autoApprovers cover `svc:facto-db` (no tailnet-policy change is made here; break-glass to confirm).
+- The upstream host and credentials never touch the repo. A fleet-run job reads 1Password `Neon facto (personal)` and pipes four lines (host, dbname, user, password) to `sudo exe-host-facto-db-config` on the VM, which writes `/etc/exe-host/facto-db/{upstream.ini,userlist.txt}` (mode 0600, owned by `facto-db`) and starts the container. Clients use the same user and password.
+- Session pooling, because facto's sqlx pool uses prepared statements. Not tested against facto.
+- **Second step, not done:** a Neon IP allow list admitting only exe-host's egress IP (161.210.95.100 per the ssh host line; verify with `curl ifconfig.me` from the VM). Needs a paid plan: a Needs-you row with the price.
+
 ## Tags and ACLs
 
 - **Tailnet:** `tail556f5b` (personal). Policy is code: `bdelanghe/tailnet-policy`, `policy.hujson`. Edit it by PR; a console edit is overwritten by the next apply and flagged by the drift job.

@@ -8,3 +8,19 @@ services:
       - "127.0.0.1:8080:8080"
     volumes:
       - /srv/state/proof:/state
+
+  # Postgres proxy to Neon, published on the tailnet as svc:facto-db (services.d/facto-db.sh). Runs as its own
+  # system user (uid 10001, `facto-db`), read-only, no capabilities. Starts only once /etc/exe-host/facto-db/
+  # exists (bootstrap.sh sets COMPOSE_PROFILES=facto-db then); facto-db-config.sh writes it from 1Password.
+  facto-db:
+    build: ./facto-db
+    profiles: ["facto-db"]
+    restart: unless-stopped
+    user: "10001:10001"
+    read_only: true
+    cap_drop: [ALL]
+    security_opt: ["no-new-privileges:true"]
+    ports:
+      - "127.0.0.1:5432:5432"
+    volumes:
+      - /etc/exe-host/facto-db:/run/facto-db:ro
