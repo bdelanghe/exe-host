@@ -9,6 +9,27 @@ services:
     volumes:
       - /srv/state/proof:/state
 
+  # facto server (Rust graphdb), built on the host into /srv/build/facto-target/release. Loopback 127.0.0.1:8877 only:
+  # tokens are in the URL path, so NO proxy or access log in front. Runs `graphdb migrate` (idempotent) before serve.
+  # Needs facto-pg up first. Config via facto-config.sh. UNTESTED.
+  facto:
+    build: ./facto
+    profiles: ["facto"]
+    restart: unless-stopped
+    user: "10004:10004"
+    read_only: true
+    cap_drop: [ALL]
+    security_opt: ["no-new-privileges:true"]
+    network_mode: host
+    working_dir: /state
+    command: ["sh", "-c", "/app/graphdb migrate && exec /app/graphdb serve"]
+    env_file: /etc/exe-host/facto/env
+    tmpfs:
+      - /tmp
+    volumes:
+      - /srv/build/facto-target/release:/app:ro
+      - /srv/state/facto:/state
+
   # Tokyo trip app backend, published as svc:tatami (services.d/tatami.sh). Keeps no state; reads/writes facto.
   # Source is pushed by the deploy-from-phobos job to /opt/exe-host/src/trip-projector/current (read-only here).
   # FACTO_URL comes from /etc/exe-host/tatami/env. UNTESTED. Host networking because projector.ts binds 127.0.0.1.
