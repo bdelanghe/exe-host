@@ -64,3 +64,13 @@ Each service keeps its tailnet name; the host is one node, so a name is a hostna
 
 - exe.dev's CLI verbs for `integrations` and `new` were written from the published docs and have not been run by an agent (sessions cannot reach exe.dev). The first fleet-run job is the test; its output is recorded in the report.
 - Image is built on the VM from this repo, not pulled from a registry. A GitHub Actions build to ghcr with a pinned digest is the next improvement.
+
+## chitin (svc:chitin): router, notify-sink, chitin-approve (plan step 3)
+
+- Its own compose project, `chitin/compose.yaml`, deployed to `/srv/chitin/` (not `/opt/exe-host`): `sudo docker compose -p chitin -f /srv/chitin/compose.yaml up -d`. `bootstrap.sh` never touches it, so facto work never restarts chitin and chitin never restarts facto.
+- Code: the exact chitin build phobos runs, rsynced to `/srv/chitin/src/chitin@<store hash>` (`rsync -rl`: bun's node_modules are relative symlinks and must stay links), `current` = `/srv/chitin/src/chitin`. chitin-approve is built on the VM: `rust:1-bookworm`, `cargo build --release --locked` of `crates/chitin-approve` at the pinned rev, installed as `/srv/chitin/bin/chitin-approve`; `/srv/chitin/bin/chitin` is a two-line `exec bun /app/src/cli.ts`.
+- Config: `/srv/chitin/config/lobby/seats.json` + `seats.d/` copied from phobos (public keys and policy only). State: `/srv/state/chitin` (uid 10005 `chitin`, 0700), so the hourly backup covers it.
+- Front: Caddy `127.0.0.1:7490` (`chitin/Caddyfile`), published by `services.d/chitin.sh` once `/etc/exe-host/chitin/enabled` exists. facto never goes behind this Caddy.
+- Health, all through `https://chitin.tail556f5b.ts.net`: `/healthz` (Caddy), `/router/healthz` and `/notify-sink/healthz` (the `healthz` container pings each unix socket live: pong is 200, anything else 503), `/approve/healthz` (chitin-approve's own).
+- notify-sink runs with `TZ=Asia/Tokyo`: its quiet hours (22:00-08:00) follow the host zone.
+- Rollback: `sudo docker compose -p chitin -f /srv/chitin/compose.yaml down`; `sudo tailscale serve --service=svc:chitin --https=443 off`. phobos's chitin is never stopped by this.
