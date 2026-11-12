@@ -1,0 +1,121 @@
+# chitin on exe-host: router, notify-sink, chitin-approve and their /healthz prober behind one Caddy, published as svc:chitin
+# (services.d/chitin.sh). Plan step 3 of PLAN-2026-11-06-off-phobos-by-nov-12.md.
+#
+# Its OWN compose project (`docker compose -p chitin -f /srv/chitin/compose.yaml ...`), never part of the top-level
+# compose.yaml, so bootstrap.sh and the facto work never restart it and it never restarts them.
+#
+# Layout on the VM (deploy.sh puts it there):
+#   /srv/chitin/src/chitin        -> chitin@<store hash>: the exact chitin build phobos runs (src + node_modules), read-only
+#   /srv/chitin/bin/chitin-approve   built on the VM from crates/chitin-approve (build-approve.sh)
+#   /srv/chitin/config/lobby/     seats.json + seats.d/ copied from phobos (public keys and policy only), read-only
+#   /srv/state/chitin             CHITIN_STATE_DIR (peers/ sockets, pending/, webauthn/, push/, notify/). Owned by uid 10005.
+#
+# Everything binds loopback only (host networking; Caddy listens 127.0.0.1:7490, approve 127.0.0.1:7481, healthz 127.0.0.1:7489).
+x-chitin: &chitin
+  image: oven/bun@sha256:87416c977a612a204eb54ab9f3927023c2a3c971f4f345a01da08ea6262ae30e # oven/bun:1.3.13
+  restart: unless-stopped
+  user: "10005:10005"
+  read_only: true
+  cap_drop: [ALL]
+  security_opt: ["no-new-privileges:true"]
+  network_mode: host
+  working_dir: /app
+  tmpfs: [/tmp]
+  environment: &env
+    HOME: /tmp
+    TZ: Asia/Tokyo # notify-sink quiet hours (22:00-08:00) follow the host zone; Bobby is in Tokyo Nov 13-21
+    CHITIN_STATE_DIR: /state
+    XDG_CONFIG_HOME: /config
+    CHITIN_ROUTER: router
+  volumes: &vols
+    - /srv/chitin/src/chitin:/app:ro
+    - /srv/chitin/config:/config:ro
+    - /srv/state/chitin:/state
+
+services:
+  router:
+    <<: *chitin
+    environment:
+      <<: *env
+      CHITIN_TITLE: router
+    command: ["bun", "/app/src/cli.ts", "route"]
+
+  notify-sink:
+    <<: *chitin
+    environment:
+      <<: *env
+      CHITIN_TAILSCALE: /usr/local/bin/tailscale
+      CHITIN_PUSH_FOLD_HOST: basis.tail556f5b.ts.net
+      CHITIN_PUSH_PRODUCERS: fold-notify
+      CHITIN_VAPID_SUBJECT: https://ipso.is
+    volumes:
+      - /srv/chitin/src/chitin:/app:ro
+      - /srv/chitin/config:/config:ro
+      - /srv/state/chitin:/state
+      - /usr/bin/tailscale:/usr/local/bin/tailscale:ro
+      - /var/run/tailscale/tailscaled.sock:/var/run/tailscale/tailscaled.sock
+    command: ["bun", "/app/src/cli.ts", "notify-sink", "--as", "notify-sink"]
+
+  # chitin-approve shells out to `chitin webauthn ...` and `tailscale whois`, so it runs in the bun image beside them.
+  # --host is the passkey relying party. Today bobby's passkey is bound to basis.tail556f5b.ts.net (seats.d/bobby.json):
+  # this approve only works for real once that host's /approve routes here or bobby re-registers on chitin.<tailnet>.
+  approve:
+    <<: *chitin
+    environment:
+      <<: *env
+      CHITIN_QUEUE_STATUS_AS: approvals
+    volumes:
+      - /srv/chitin/src/chitin:/app:ro
+      - /srv/chitin/config:/config:ro
+      - /srv/state/chitin:/state
+      - /srv/chitin/bin:/opt/chitin/bin:ro
+      - /usr/bin/tailscale:/usr/local/bin/tailscale:ro
+      - /var/run/tailscale/tailscaled.sock:/var/run/tailscale/tailscaled.sock
+    entrypoint: ["/opt/chitin/bin/chitin-approve"]
+    command:
+      - --listen
+      - 127.0.0.1:7481
+      - --host
+      - basis.tail556f5b.ts.net
+      - --login
+      - bdelanghe@github
+      - --chitin
+      - /opt/chitin/bin/chitin
+      - --tailscale
+      - /usr/local/bin/tailscale
+      - --pending-redirect
+      - /#/needs
+      - --allow-node
+      - nikWRyfT1721CNTRL
+      - --allow-node
+      - n2iLEJE4NG11CNTRL
+      - --allow-node
+      - nF3xB4JGv711CNTRL
+
+  # /healthz for the two socket-only daemons: each request pings the unix socket live (op ping -> pong).
+  healthz:
+    <<: *chitin
+    volumes:
+      - /srv/chitin/src/chitin:/app:ro
+      - /srv/chitin/config:/config:ro
+      - /srv/state/chitin:/state:ro
+      - /srv/chitin/healthz.ts:/opt/chitin/healthz.ts:ro
+    command: ["bun", "/opt/chitin/healthz.ts"]
+
+  caddy:
+    image: caddy@sha256:4c6e91c6ed0e2fa03efd5b44747b625fec79bc9cd06ac5235a779726618e530d # caddy:2.10-alpine
+    restart: unless-stopped
+    user: "10005:10005"
+    read_only: true
+    cap_drop: [ALL]
+    # The image's /usr/bin/caddy carries file capability cap_net_bind_service: with it out of the bounding set the exec
+    # itself fails (EPERM). It binds 7490, so the capability is never used; it only has to stay boundable.
+    cap_add: [NET_BIND_SERVICE]
+    security_opt: ["no-new-privileges:true"]
+    network_mode: host
+    environment:
+      XDG_DATA_HOME: /tmp
+      XDG_CONFIG_HOME: /tmp
+    tmpfs: [/tmp]
+    volumes:
+      - /srv/chitin/Caddyfile:/etc/caddy/Caddyfile:ro
