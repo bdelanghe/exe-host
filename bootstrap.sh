@@ -36,4 +36,6 @@ install -m 0755 facto-db-config.sh /usr/local/sbin/exe-host-facto-db-config
 install -m 0644 systemd/*.service systemd/*.timer /etc/systemd/system/
 systemctl daemon-reload
 systemctl enable --now exe-host-backup.timer exe-host-join.timer
+# join.sh publishes services.d only when it joins; publish what this pull added or changed now (no-op off the tailnet).
+/usr/local/sbin/exe-host-join publish
 echo "bootstrap done: $(git rev-parse --short HEAD)"
