@@ -8,9 +8,10 @@
 #   backup.sh            snapshot, then prune (keep 7 daily / 4 weekly / 6 monthly)
 #   backup.sh restore D  restore the latest snapshot into directory D (restore drill)
 set -eu
-. /etc/exe-host/backup.env
-[ -r /etc/exe-host/r2-cred.env ] || { echo "backup: no R2 credential at /etc/exe-host/r2-cred.env (pusher has not run)" >&2; exit 1; }
-. /etc/exe-host/r2-cred.env
+ETC=${EXE_HOST_ETC:-/etc/exe-host}
+. "$ETC/backup.env"
+[ -r "$ETC/r2-cred.env" ] || { echo "backup: no R2 credential at $ETC/r2-cred.env (pusher has not run)" >&2; exit 1; }
+. "$ETC/r2-cred.env"
 if [ "$(date +%s)" -ge "${CRED_EXPIRES:?r2-cred.env has no CRED_EXPIRES}" ]; then
   echo "backup: R2 credential expired (CRED_EXPIRES=$CRED_EXPIRES); the pusher is not refreshing it" >&2
   exit 1
@@ -24,5 +25,7 @@ if [ "${1:-}" = restore ]; then
   exit 0
 fi
 
-restic backup /srv/state --tag exe-host
+# facto-pg's live data directory is excluded: a file copy of a running Postgres is not a restorable backup and it is
+# ~88 GB. Postgres needs pg_dump or WAL archiving (README, Backups).
+restic backup /srv/state --exclude /srv/state/facto-pg --tag exe-host
 restic forget --keep-daily 7 --keep-weekly 4 --keep-monthly 6 --prune
