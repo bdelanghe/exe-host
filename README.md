@@ -52,7 +52,7 @@ Each service keeps its tailnet name; the host is one node, so a name is a hostna
 - Restic repository `s3:https://<account>.r2.cloudflarestorage.com/<bucket>/exe-host`, client-side encrypted (the restic password and the R2 keys live only in 1Password `Fleet/exe-host-r2-backup` and in `/etc/exe-host/backup.env`, mode 0600 root).
 - Hourly snapshots of `/srv/state`; keep 7 daily, 4 weekly, 6 monthly.
 - **Restore drill** (done once, recorded in the report): `sudo exe-host-backup restore /tmp/restore`, compare the proof counter.
-- **Not covered:** Postgres. facto-pg needs `pg_dump`/WAL archiving, not a file copy of a live data directory. That belongs to step 2.
+- **Not covered:** Postgres (`backup.sh` excludes `/srv/state/facto-pg`). facto-pg needs `pg_dump`/WAL archiving, not a file copy of a live data directory. That belongs to step 2.
 
 ## Cost
 
