@@ -13,7 +13,7 @@ Plan: `~/.lobby/ops/decisions/PLAN-2026-11-06-off-phobos-by-nov-12.md`. This rep
 | `bootstrap.sh` | idempotent: docker, tailscale, restic; `docker compose up -d --build`; installs the timers. |
 | `compose.yaml` | the services. One entry each: image (or build dir), loopback port, state under `/srv/state/<name>`. |
 | `services.d/<name>.sh` | publishes one service on the tailnet (`tailscale serve`). Run by `join.sh`. |
-| `join.sh` | joins the tailnet with exe.dev's token; no-op while online; re-runs every 10 min (`exe-host-join.timer`). |
+| `join.sh` | joins the tailnet with exe.dev's token and runs `services.d/`; no-op while online; re-runs every 10 min (`exe-host-join.timer`). `join.sh publish` (end of `bootstrap.sh`) re-runs `services.d/` while online. |
 | `backup.sh` | restic of `/srv/state` to R2, hourly (`exe-host-backup.timer`); `backup.sh restore DIR` for the drill. |
 | `proof/` | the proof service: busybox httpd + a CGI that prints host, UTC time and a hit counter kept in `/srv/state/proof`. |
 
