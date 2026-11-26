@@ -7,6 +7,7 @@
 set -eu
 WIF=${EXE_WIF_URL:-https://tailscale-wif-host.int.exe.xyz}
 HOSTNAME_TS=${EXE_HOST_TSNAME:-exe-host}
+SERVICES_D=${EXE_HOST_SERVICES_D:-/opt/exe-host/services.d}
 
 if tailscale status --json 2>/dev/null | jq -e '.BackendState == "Running"' >/dev/null 2>&1; then
   exit 0
@@ -25,4 +26,11 @@ tailscale up \
 unset ID_TOKEN
 
 # Publish each service on the tailnet (plain HTTP inside the tailnet; WireGuard already encrypts it).
-for f in /opt/exe-host/services.d/*.sh; do [ -f "$f" ] && sh "$f"; done
+# One failing script must not leave the rest unpublished: this runs only on a join, so a skipped service would stay
+# down until the node next drops. Run them all, then fail the unit naming the ones that failed.
+failed=""
+for f in "$SERVICES_D"/*.sh; do
+  [ -f "$f" ] || continue
+  sh "$f" || failed="$failed ${f##*/}"
+done
+[ -z "$failed" ] || { echo "join: services.d failed:$failed" >&2; exit 1; }
